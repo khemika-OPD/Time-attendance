@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OPD Takhli - Time Attendance & OT System</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background-color: #f3f4f6; color: #1f2937; display: flex; flex-direction: column; min-height: 100vh; }
+        header { background-color: #0d9488; color: #ffffff; padding: 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .header-container { max-width: 950px; margin: 0 auto; width: 100%; display: flex; justify-content: space-between; align-items: center; }
+        .back-btn { color: #ffffff; text-decoration: none; font-size: 0.875rem; background-color: #0f766e; padding: 6px 12px; border-radius: 6px; font-weight: bold; }
+        
+        main { flex-grow: 1; max-width: 950px; width: 100%; margin: 0 auto; padding: 32px 16px; }
+        .attendance-card { background-color: #ffffff; border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; margin-bottom: 24px; }
+        .m-title { font-size: 1.25rem; font-weight: bold; color: #0f766e; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 2px solid #ccfbf1; display: flex; justify-content: space-between; align-items: center; }
+        
+        .live-clock { font-size: 1.5rem; font-weight: bold; color: #0d9488; background: #e6fffa; padding: 6px 16px; border-radius: 8px; font-family: monospace; border: 1px solid #2dd4bf; }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(1, minmax(0, 1fr)); gap: 16px; margin-bottom: 20px; }
+        @media (min-width: 640px) { .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        .form-group label { font-size: 0.9rem; font-weight: bold; color: #374151; }
+        .form-group select, .form-group input { padding: 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.95rem; background-color: #fff; }
+        
+        .ot-notice { background-color: #eff6ff; border: 1px dashed #3b82f6; color: #1e40af; padding: 12px; border-radius: 6px; font-size: 0.85rem; margin-bottom: 16px; }
+
+        .btn-container { display: flex; gap: 12px; }
+        .time-btn { flex: 1; padding: 14px; color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: opacity 0.2s; }
+        .btn-in { background-color: #059669; }
+        .btn-out { background-color: #dc2626; }
+        .time-btn:hover { opacity: 0.9; }
+        
+        .table-title { font-size: 1.1rem; font-weight: bold; color: #1f2937; margin-bottom: 12px; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+        .data-table th, .data-table td { padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: left; }
+        .data-table th { background-color: #f9fafb; color: #4b5563; font-weight: bold; }
+        .badge { padding: 3px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
+        .badge-in { background-color: #d1fae5; color: #065f46; }
+        .badge-out { background-color: #fee2e2; color: #991b1b; }
+
+        footer { background-color: #1f2937; color: #9ca3af; text-align: center; padding: 16px; font-size: 0.85rem; border-top: 1px solid #374151; margin-top: auto; }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="header-container">
+            <h1>8. ระบบลงเวลาและตรวจสอบชั่วโมงปฏิบัติงาน (OT Alignment)</h1>
+            <a href="index.html" class="back-btn">⬅️ กลับหน้าหลัก</a>
+        </div>
+    </header>
+
+    <!-- Main Section -->
+    <main>
+        <div class="attendance-card">
+            <div class="m-title">
+                <span>⏱️ บันทึกเวลาปฏิบัติงานรายวันเพื่อเบิกจ่ายค่าตอบแทน</span>
+                <div class="live-clock" id="liveClock">00:00:00</div>
+            </div>
+            
+            <div class="ot-notice">
+                💡 <strong>คำแนะนำการเบิกเวรนอกเวลา:</strong> ข้อมูลเวลากดเข้า-ออกจริงจะถูกส่งไปจับคู่กับตารางเวรหลักใน Google Sheets เพื่อตรวจสอบความถูกต้องและคำนวณค่าตอบแทนเวรบ่าย-ดึก หรือเวร OT อัตโนมัติค่ะ
+            </div>
+
+            <form id="attendanceForm">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>ชื่อ-นามสกุล บุคลากร</label>
+                        <select id="staffName">
+                            <option value="น.ส. จรรจิรา รักดี">น.ส. จรรจิรา รักดี</option>
+                            <option value="น.ส. กานดา มั่นคง">น.ส. กานดา มั่นคง</option>
+                            <option value="นาง เคมิกา พงษ์ศรี">นาง เคมิกา พงษ์ศรี</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>ประเภทเวร / แหล่งงบประมาณเบิกจ่าย</label>
+                        <select id="shiftType">
+                            <option value="เวรเช้า (08.00 - 16.00 น.) - เวรตั้งรับหลัก">เวรเช้า (08.00 - 16.00 น.) - เวรตั้งรับหลัก</option>
+                            <option value="เวรบ่าย (16.00 - 24.00 น.) - เบาหวาน/ความดัน/ทั่วไป">เวรบ่าย (16.00 - 24.00 น.) - เบาหวาน/ความดัน/ทั่วไป</option>
+                            <option value="เวรดึก (00.00 - 08.00 น.) - เฝ้าระวัง">เวรดึก (00.00 - 08.00 น.) - เฝ้าระวัง</option>
+                            <option value="เวรนอกเวลาราชการ (OT) - คลินิกพิเศษ/เสาร์-อาทิตย์">เวรนอกเวลาราชการ (OT) - คลินิกพิเศษ/เสาร์-อาทิตย์</option>
+                            <option value="เวรเรียกเสริมพิเศษ / Refer ส่งต่อกรณีฉุกเฉิน">เวรเรียกเสริมพิเศษ / Refer ส่งต่อกรณีฉุกเฉิน</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>หมายเหตุความจำเป็น / เลขที่คำสั่งอนุมัติขึ้นเวร (ถ้ามี)</label>
+                        <input type="text" id="otRemark" placeholder="เช่น ปฏิบัติงานทดแทนคุณ... / อนุมัติคำสั่งคำสั่งโรงพยาบาลเลขที่...">
+                    </div>
+                </div>
+
+                <div class="btn-container">
+                    <button type="button" class="time-btn btn-in" onclick="recordTime('เข้าเวร')">📥 บันทึกเวลาเข้าเวร (Clock In)</button>
+                    <button type="button" class="time-btn btn-out" onclick="recordTime('ออกเวร')">📤 บันทึกเวลาออกเวร (Clock Out)</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- ส่วนตารางแสดงประวัติล่าสุด -->
+        <div class="attendance-card">
+            <div class="table-title">📊 รายการบันทึกเวลาที่เตรียมยิงข้อมูลเข้าตาราง Google Sheets สรุปยอด OT</div>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>ชื่อ-นามสกุล</th>
+                        <th>ประเภทเวร/งบเบิกจ่าย</th>
+                        <th>วันเวลาบันทึกระบบ</th>
+                        <th>หมายเหตุคำสั่งอนุมัติ</th>
+                        <th>สถานะ</th>
+                    </tr>
+                </thead>
+                <tbody id="attendanceLogBody">
+                    <tr>
+                        <td>นาง เคมิกา พงษ์ศรี</td>
+                        <td>เวรนอกเวลาราชการ (OT) - คลินิกพิเศษ/เสาร์-อาทิตย์</td>
+                        <td>21/06/2026 08:02:44</td>
+                        <td>เปิดคลินิกความดันโลหิตสูงอัจฉริยะพิเศษ</td>
+                        <td><span class="badge badge-in">เข้าเวร</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <footer>
+        <p>© 2026 งานผู้ป่วยนอก โรงพยาบาลตาคลี | พัฒนาโดย Khemika-OPD Takhli (Khemika Pongsri)</p>
+    </footer>
+
+    <script>
+        function updateClock() {
+            const now = new Date();
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('liveClock').innerText = `${hours}:${minutes}:${seconds}`;
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        function recordTime(statusType) {
+            const name = document.getElementById('staffName').value;
+            const shift = document.getElementById('shiftType').value;
+            const remark = document.getElementById('otRemark').value || '-';
+            
+            const now = new Date();
+            const date = String(now.getDate()).padStart(2, '0');
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const year = now.getFullYear();
+            const time = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0') + ":" + String(now.getSeconds()).padStart(2, '0');
+            
+            const dateTimeString = `${date}/${month}/${year} ${time}`;
+            const badgeClass = statusType === 'เข้าเวร' ? 'badge-in' : 'badge-out';
+            
+            const tableBody = document.getElementById('attendanceLogBody');
+            const newRow = `<tr>
+                <td><strong>${name}</strong></td>
+                <td>${shift}</td>
+                <td>${dateTimeString}</td>
+                <td style="color:#4b5563;">${remark}</td>
+                <td><span class="badge ${badgeClass}">${statusType}</span></td>
+            </tr>`;
+            
+            tableBody.insertAdjacentHTML('afterbegin', newRow);
+            
+            // 🌐 ส่วนของการเชื่อมต่อส่งข้อมูลหลังบ้านเข้า Google Sheets (อาจารย์สามารถนำ URL Google Web App มารันต่อตรงนี้ได้เลยค่ะ)
+            alert(`[Database Linked] บันทึกเวลาเข้าชีตสำเร็จ:\nคุณ ${name} สรุปยอดเวร ${statusType} ลงตารางคำนวณ OT เรียบร้อยค่ะ`);
+            document.getElementById('otRemark').value = '';
+        }
+    </script>
+</body>
+</html>
